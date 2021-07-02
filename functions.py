@@ -1,7 +1,31 @@
 import cv2
 import csv
 import threading
+import mysql.connector
+import time as tim 
 
+mydb = mysql.connector.connect(
+  host="underneth.net",
+  database="undernet_testeua",
+  user="undernet_usr-ua",
+  password="2c0ixKTe;sLI"
+)
+
+
+if mydb.is_connected():
+    db_info = mydb.get_server_info()
+    print("Conectado ao servidor!")
+    cursor = mydb.cursor()
+    #cursor.execute("TRUNCATE TABLE eciu;")
+    #cursor.execute("CREATE TABLE eciu (id_camera int, id_zona int, cont int, horas datetime)")
+    #cursor.execute("INSERT INTO eciu VALUES (1,1,1,'2001-04-19')")
+    mydb.commit()
+
+#cursor.execute("CREATE DATABASE ex_list")
+
+
+
+print(mydb)
 # Start a new CamThread, inside it, invoke the preview of the camera.
 class camThread(threading.Thread):
     def __init__(self, previewName, camID, Cascade, Scale, MinNeighbors):
@@ -22,7 +46,8 @@ def camPreview(previewName, camID, Cascade, Scale, MinNeighbors):
     ppl_count = 0
     diff_ppl = True
     time = 0
-
+    tic = tim.time()  
+    cnt = 0
     if cam.isOpened():  # try to get the first frame
         rval, frame = cam.read()
     else:
@@ -31,7 +56,6 @@ def camPreview(previewName, camID, Cascade, Scale, MinNeighbors):
     while rval:
         rval, frame = cam.read()
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
         i = 0
         
         for param in Cascade[0]:
@@ -59,8 +83,22 @@ def camPreview(previewName, camID, Cascade, Scale, MinNeighbors):
         
         draw(frame, person_detected, Cascade[1][i])
         cv2.putText(frame, "FPS: " + str(fps), (0, 15), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 255), bottomLeftOrigin=False)
-        cv2.putText(frame, "PPL: " + str(ppl_count), (250, 30), cv2.FONT_HERSHEY_COMPLEX, 1.0, (0, 0, 255), bottomLeftOrigin=False)
+        cv2.putText(frame, "PPL: " + str(human_count), (250, 30), cv2.FONT_HERSHEY_COMPLEX, 1.0, (0, 0, 255), bottomLeftOrigin=False)
         #check_pos(frame, person_detected)
+        
+        toc = tim.time()
+
+        #print(int((toc - tic) % 15))
+        if (int((toc - tic) % 15) == 0 and cnt == 0):
+            sql = ("INSERT INTO eciu VALUES (%s, %s, %s, %s)")
+            val = (camID, 0, human_count, tim.strftime('%Y-%m-%d %H:%M:%S'))
+            cursor.execute(sql, val)
+            print("Adicionado valores: (Cam: ",camID,"), (Zone: ", 0, "), (Ppl_Count: ", human_count,  "), (Time: ", tim.strftime('%Y-%m-%d %H:%M:%S'), ")")
+            mydb.commit()
+            cnt = 1
+        
+        if (int((toc - tic) % 15) == 1):
+            cnt = 0
 
         key = cv2.waitKey(20)
         if key == 27:  # exit on ESC
